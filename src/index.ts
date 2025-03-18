@@ -141,9 +141,6 @@ async function stdioToSse(args: StdioToSseArgs): Promise<void> {
     healthEndpoints,
     apiKey,
   } = args
-
-  log.info("Starting sdtio → SSE server...")
-  log.info(`Channel v${getVersion()} - https://chasm.net`)
   handleSignals()
 
   const child: ChildProcessWithoutNullStreams = spawn(stdioCmd, { shell: true })
@@ -208,8 +205,6 @@ async function stdioToSse(args: StdioToSseArgs): Promise<void> {
 
       // SSE endpoint
       if (pathname === ssePath && req.method === "GET") {
-        log.info(`New SSE connection from ${req.socket.remoteAddress}`)
-
         res.writeHead(200, {
           ...headers,
           "Content-Type": "text/event-stream",
@@ -228,13 +223,11 @@ async function stdioToSse(args: StdioToSseArgs): Promise<void> {
           sessions[sessionId] = { transport: sseTransport, response: res }
 
           sseTransport.onmessage = (msg: JSONRPCMessage) => {
-            log.info(`SSE → Child (${sessionId}): ${JSON.stringify(msg)}`)
             child.stdin.write(JSON.stringify(msg) + "\n")
           }
 
           sseTransport.onclose = () => delete sessions[sessionId]
           sseTransport.onerror = (err: Error) => {
-            log.error(`‼️ SSE error (${sessionId}):`, err)
             delete sessions[sessionId]
           }
 
@@ -293,7 +286,6 @@ async function stdioToSse(args: StdioToSseArgs): Promise<void> {
       .forEach((line) => {
         try {
           const jsonMsg = JSON.parse(line)
-          log.info("Child → SSE:", jsonMsg)
 
           Object.entries(sessions).forEach(([sid, session]) => {
             try {
@@ -314,19 +306,13 @@ async function stdioToSse(args: StdioToSseArgs): Promise<void> {
   )
 
   // Start server
-  httpServer.listen(port, () => {
-    log.info(`🎧 Listening on port ${port}`)
-    log.info(`🛰️ SSE endpoint: http://localhost:${port}${ssePath}`)
-    log.info(`📮 POST messages: http://localhost:${port}${messagePath}`)
-  })
+  httpServer.listen(port)
 }
 
 // SSE to STDIO client
 async function sseToStdio(args: SseToStdioArgs): Promise<void> {
   const { sseUrl, log, apiKey } = args
 
-  log.info("Starting SSE → stdio client...")
-  log.info(`Channel v${getVersion()} - https://chasm.net`)
   handleSignals()
 
   // Initialize transport with API key if provided
@@ -359,7 +345,6 @@ async function sseToStdio(args: SseToStdioArgs): Promise<void> {
   }
 
   await sseClient.connect(sseTransport)
-  log.info("✅ SSE connected")
 
   // Set up STDIO server
   const stdioServer = new Server(
@@ -376,7 +361,6 @@ async function sseToStdio(args: SseToStdioArgs): Promise<void> {
       const isRequest = "method" in message && "id" in message
 
       if (isRequest) {
-        log.info("stdio → SSE:", message)
         const req = message as JSONRPCRequest
 
         try {
@@ -393,7 +377,6 @@ async function sseToStdio(args: SseToStdioArgs): Promise<void> {
                 { result: { ...result } }),
           }
 
-          log.info("Response:", response)
           process.stdout.write(JSON.stringify(response) + "\n")
         } catch (err: any) {
           const errorCode = err?.code || -32000
@@ -414,13 +397,10 @@ async function sseToStdio(args: SseToStdioArgs): Promise<void> {
           process.stdout.write(JSON.stringify(errorResp) + "\n")
         }
       } else {
-        log.info("SSE → stdio:", message)
         process.stdout.write(JSON.stringify(message) + "\n")
       }
     }
   }
-
-  log.info("🎧 stdio server listening")
 }
 
 // Main function
