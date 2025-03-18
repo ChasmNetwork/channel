@@ -1,6 +1,6 @@
 {
   "name": "@chasmnetwork/channel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Channel your MCP servers over SSE and SSE over stdio.",
   "repository": {
     "type": "git",
